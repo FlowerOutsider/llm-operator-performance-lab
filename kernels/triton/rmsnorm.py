@@ -81,9 +81,16 @@ def rmsnorm_triton(
 
     rows = x.numel() // hidden_size
     block_size = triton.next_power_of_2(hidden_size)
-    num_warps = 4 if block_size <= 4096 else 8
+
+    if num_warps is None:
+        num_warps = 4 if block_size <= 4096 else 8
+
+    if num_warps not in (1, 2, 4, 8):
+        raise ValueError("num_warps must be one of 1, 2, 4, 8")
 
     y = torch.empty_like(x)
+    row_stride = x.stride(-2) if x.ndim >= 2 else hidden_size
+
     grid = (rows,)
 
     _rmsnorm_forward_kernel[grid](
